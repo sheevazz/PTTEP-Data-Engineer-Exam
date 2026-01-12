@@ -33,3 +33,14 @@ Cloud Run executes using a pipeline service account that has BigQuery Job User, 
 Local development uses limited credentials.
 
 ---
+
+## 🧠 Enterprise Design
+
+| Area | Design |
+|------|-------|
+| IAM | Developers define schemas; Cloud Run executes data jobs |
+| Security | No credentials stored in code |
+| Data Quality | Type, range, and format enforcement |
+| Observability | Logs available in Cloud Run & BigQuery |
+
+---
