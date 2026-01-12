@@ -1,0 +1,20 @@
+Reading CSV from /home/ap_limpastan/task1-data-pipeline/data/data_storytelling.csv ...
+Read 81 valid rows
+/home/ap_limpastan/task1-data-pipeline/src/task1_ingest.py:178: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  "created_datetime": datetime.utcnow()
+Schema:
+row_id                                      int64
+integer_col                                 Int64
+decimal_col                                object
+timestamp_col                              object
+boolean_col                                object
+holiday_name                               object
+business_datetime    datetime64[ns, Asia/Bangkok]
+created_datetime                   datetime64[ns]
+dtype: object
+Writing CSV...
+Loading into BigQuery via bq CLI...
+
+Upload complete.
+Waiting on bqjob_r5773fcb21204e0ae_0000019bb365ffc8_1 ... (1s) Current status: DONE   
+BigQuery load completed successfully
