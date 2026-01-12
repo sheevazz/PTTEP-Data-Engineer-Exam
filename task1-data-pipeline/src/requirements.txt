@@ -1,0 +1,7 @@
+pandas
+google-cloud-bigquery
+google-cloud-storage<3.0.0
+pytz
+fsspec
+gcsfs
+pyarrow
