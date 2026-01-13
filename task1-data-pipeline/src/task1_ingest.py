@@ -126,12 +126,22 @@ def extract_holiday(text):
 
     text = re.sub(r"\s+", " ", text).strip()
 
-    match = re.search(r"([A-Z][A-Za-z']*(?: [A-Z][A-Za-z']*)*) Day", text)
+    # match = re.search(r"([A-Z][A-Za-z']*(?: [A-Z][A-Za-z']*)*) Day", text)
+    match = re.search(
+        r"([A-Z][A-Za-z']*(?: [A-Z][A-Za-z']*)*) (Day|Festival)",
+        text
+    )
+
     if not match:
         dq["holiday.not_found"] += 1
         return None
 
-    holiday = match.group(0)
+    # holiday = match.group(0)
+    holiday = match.group(0).strip()
+
+    # remove leading "The "
+    holiday = re.sub(r"^The\s+", "", holiday, flags=re.IGNORECASE)
+
 
     for prefix in [
         "On ", "on ", "During ", "during ",
