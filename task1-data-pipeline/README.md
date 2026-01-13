@@ -14,8 +14,15 @@
 
 ## 🧪 Data Processing Rules
 
-Each row is validated independently.  
-If a value does not match the required data type or range, it is stored as **NULL**.
+Each row is validated independently.
+
+For most fields, if a value does not match the required data type or allowed range, it is stored as **NULL**.
+
+For `decimal_col`, values that exceed BigQuery’s **allowed scale (more than 9 decimal places)** are **rounded** to 9 decimal places.  
+Values that exceed BigQuery’s **allowed precision or numeric range** are stored as **NULL**.
+
+All transformations are deterministic and do not affect other columns in the same row.
+
 
 ### 1. `row_id`
 Generated as a running number starting from 1.
@@ -25,29 +32,42 @@ Generated as a running number starting from 1.
 ### 2. `integer_col` → INT64
 
 Rules:
-- Commas allowed ("1,234" → 1234)
-- Whole numbers allowed (180, 180.0)
-- Decimals not allowed (1.23 → NULL)
-- Scientific notation not allowed
-- Must fit BigQuery INT64 range
+- Parsed as string first (no float inference)
+- Commas are allowed (`"1,234"` → `1234`)
+- Whole numbers are allowed (`"180"`, `"180.0"` → `180`)
+- Any value with a fractional component → `NULL` (`"1.23"` → `NULL`)
+- Scientific notation is not allowed (`"1e10"` → `NULL`)
+- Must fit within BigQuery INT64 range (−9,223,372,036,854,775,808 to 9,223,372,036,854,775,807)
+- Output is always an integer string (no `.0`) for BigQuery ingestion
 
 | Input | Output |
-|------|--------|
-| "1,234" | 1234 |
-| "180.0" | 180 |
-| "1.23" | NULL |
-| "1e10" | NULL |
+|--------|--------|
+| `"1,234"` | `1234` |
+| `"180"` | `180` |
+| `"180.0"` | `180` |
+| `"1.23"` | `NULL` |
+| `"1e10"` | `NULL` |
+| `"9223372036854775808"` | `NULL` |
+
 
 ---
 
 ### 3. `decimal_col` → BIGNUMERIC
 
-NUMERIC is not sufficient due to extremely large values in the data.
+The source data contains extremely large and high-precision decimal values that cannot be loaded directly into BigQuery without normalization.
+
+BigQuery BIGNUMERIC constraints:
+- Maximum **38 digits before** the decimal point
+- Maximum **9 digits after** the decimal point
+- Absolute value ≤ 5.78960446186581 × 10³⁸
 
 Rules:
-- Parsed with Python Decimal
-- Must fit BigQuery BIGNUMERIC range (±5.78960446186581 × 10³⁸)
-- Out-of-range values → NULL
+- Parsed using Python `Decimal` (no floating-point loss)
+- Values with more than **38 integer digits** → `NULL`
+- Values with more than **9 fractional digits** → rounded to 9 decimal places
+- Values exceeding the **BIGNUMERIC numeric range** → `NULL`
+- All valid values are emitted in fixed-point string form for BigQuery ingestion
+
 
 ---
 
@@ -58,6 +78,7 @@ Accepted formats:
 - YYYY-MM-DD HH:MM:SS
 - YYYYMMDDHHMMSS
 - DD-Mon-YY (assumed 2026)
+- DD/MM/YYYY
 
 All invalid formats → NULL.
 
@@ -143,3 +164,17 @@ gcp-test-data-engineer.exam_<last_name>.task1_data_result
 ```
 
 Invalid or out-of-range values are stored as NULL, ensuring reliable analytics-ready data.
+
+## 🔍 Data Quality & Auditing
+
+The pipeline does not drop rows when values are invalid or exceed BigQuery constraints.
+
+Instead, invalid values are:
+- Set to `NULL`
+- Counted per rule (e.g., `decimal.out_of_range`, `integer.invalid`, `timestamp.invalid`)
+- Logged with up to 5 example values per category for forensic auditing
+
+This allows:
+- Full row preservation
+- Transparent justification for every NULL
+- Reproducible data quality metrics
