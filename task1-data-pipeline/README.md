@@ -75,7 +75,7 @@ All invalid formats → NULL.
 
 ### 6. `holiday_name`
 
-Extracted from free text ending with "Day".  
+Extracted from free text ending with "Day" and "Festival".  
 Leading context words are removed.
 
 | Input | Output |
@@ -83,6 +83,7 @@ Leading context words are removed.
 | On Constitution Day | Constitution Day |
 | During Labour Day | Labour Day |
 | Buddhists  Makha Bucha Day | Makha Bucha Day |
+| during Songkran Festival | Songkran Festival |
 
 ---
 
