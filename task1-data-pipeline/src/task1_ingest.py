@@ -139,24 +139,58 @@ def parse_timestamp(v):
 # =====================================================
 
 def parse_boolean(v):
-    v = v.lower()
-    if v in ["true", "yes", "ok", "1"]:
-        return True
-    if v in ["false", "-", ""]:
+    if v is None or str(v).strip() == "":
         return False
-    record_dq("boolean.invalid", v)
+
+    s = str(v).strip().lower()
+
+    # invalid placeholder
+    if s == "-":
+        record_dq("boolean.invalid", v)
+        return None
+
+    # TRUE values
+    if s in ["true", "yes", "ok", "1"]:
+        return True
+
+    # everything else → False (valid)
     return False
+
 
 # =====================================================
 # Holiday
 # =====================================================
 
 def extract_holiday(text):
-    m = re.search(r"([A-Z][A-Za-z']*(?: [A-Z][A-Za-z']*)*) (Day|Festival|Ceremony|Birthday)", text)
-    if not m:
-        record_dq("holiday.not_found", text)
+    if not text:
+        record_dq("holiday.null", text)
         return None
-    return m.group(0)
+
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # Remove narrative prefixes
+    text = re.sub(r"^(On|After|During|The day of|the day of)\s+", "", text, flags=re.IGNORECASE)
+
+    patterns = [
+        # Makha Bucha Day, Songkran Festival, Royal Ploughing Ceremony
+        r"([A-Z][A-Za-z']*(?: [A-Z][A-Za-z']*)*) (Day|Festival|Ceremony)",
+
+        # King's Birthday, Queen's Birthday
+        r"([A-Z][A-Za-z']*'s Birthday)",
+
+        # Makha Bucha (without "Day")
+        r"(Makha Bucha|Visakha Bucha|Asalha Bucha)"
+    ]
+
+    for p in patterns:
+        m = re.search(p, text)
+        if m:
+            return m.group(1)
+
+    record_dq("holiday.not_found", text)
+    return None
+
+
 
 # =====================================================
 # BIGNUMERIC
