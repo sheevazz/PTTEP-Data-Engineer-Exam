@@ -1,8 +1,9 @@
-Reading CSV from /home/ap_limpastan/task1-data-pipeline/data/data_storytelling.csv ...
-Read 81 valid rows
-/home/ap_limpastan/task1-data-pipeline/src/task1_ingest.py:178: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+2026-01-13 11:49:30,588 | INFO | task1-pipeline | Reading CSV from /home/ap_limpastan/task1-data-pipeline/data/data_storytelling.csv
+2026-01-13 11:49:30,593 | INFO | task1-pipeline | Read 81 valid rows
+/home/ap_limpastan/task1-data-pipeline/src/task1_ingest.py:225: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
   "created_datetime": datetime.utcnow()
-Schema:
+2026-01-13 11:49:30,601 | INFO | task1-pipeline | Output schema:
+2026-01-13 11:49:30,602 | INFO | task1-pipeline | 
 row_id                                      int64
 integer_col                                 Int64
 decimal_col                                object
@@ -12,9 +13,22 @@ holiday_name                               object
 business_datetime    datetime64[ns, Asia/Bangkok]
 created_datetime                   datetime64[ns]
 dtype: object
-Writing CSV...
-Loading into BigQuery via bq CLI...
+2026-01-13 11:49:30,603 | INFO | task1-pipeline | Data quality summary:
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   decimal.invalid = 64
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   timestamp.invalid = 78
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   boolean.invalid = 65
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   holiday.not_found = 42
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   boolean.null = 7
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   decimal.out_of_range = 2
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   boolean.placeholder = 7
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   timestamp.null = 2
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   decimal.null = 1
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   integer.out_of_range = 49
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   integer.null = 7
+2026-01-13 11:49:30,603 | INFO | task1-pipeline |   integer.invalid = 23
+2026-01-13 11:49:30,603 | INFO | task1-pipeline | Writing CSV to /home/ap_limpastan/task1-data-pipeline/result/task1_out.csv
+2026-01-13 11:49:30,607 | INFO | task1-pipeline | Loading 81 rows into gcp-test-data-engineer:exam_limpastan.task1_data_result
 
 Upload complete.
-Waiting on bqjob_r5773fcb21204e0ae_0000019bb365ffc8_1 ... (1s) Current status: DONE   
-BigQuery load completed successfully
+Waiting on bqjob_r7081bcf31c24ec3c_0000019bb73cb6a8_1 ... (1s) Current status: DONE   
+2026-01-13 12:02:51,932 | INFO | task1-pipeline | BigQuery load completed successfully
