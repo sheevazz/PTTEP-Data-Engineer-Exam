@@ -1,52 +1,41 @@
-2026-01-13 17:23:40,648 | INFO | task1-pipeline | Recovered 105 rows
-2026-01-13 17:23:40,654 | INFO | task1-pipeline | Writing 105 rows to CSV
-2026-01-13 17:23:40,654 | INFO | task1-pipeline | ========== DATA QUALITY REPORT ==========
-2026-01-13 17:23:40,654 | INFO | task1-pipeline | integer.invalid = 60
-2026-01-13 17:23:40,654 | INFO | task1-pipeline |    sample → 55,519975958309744380574202244404101513216.2808153575264329286178143503023705908758
-2026-01-13 17:23:40,654 | INFO | task1-pipeline |    sample → ,552215489184241016142749796723190661120.9796678377436127124717017956793574947821
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → 81,438723381760881326450937667240733966336.3746145771349792260661773257067242608936
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → 64,48572119303512680943979517588967260160.1785583551782259330294362555441826861195
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → ,78369940541113786861505034523364032512.2107773292033460099863316837946527696913
-2026-01-13 17:23:40,655 | INFO | task1-pipeline | decimal.invalid = 56
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → 2026-01-06 07:48:25
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → 06/01/2026
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → 26-Jan-06
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → 06/01/2026
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → 06/01/2026
-2026-01-13 17:23:40,655 | INFO | task1-pipeline | timestamp.invalid = 80
-2026-01-13 17:23:40,655 | INFO | task1-pipeline | boolean.invalid = 78
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → makha bucha day is celebrated in thailand
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → labour day is celebrated on the first monday of september in the united states
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → chulalongkorn day is observed in thailand to honor king chulalongkorn
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → king's birthday is a national holiday in thailand
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → no
-2026-01-13 17:23:40,655 | INFO | task1-pipeline | holiday.not_found = 76
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → commemorating the Buddha's teachings and the gathering of his first disciples.
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → honoring the contributions of workers.
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → who is remembered for his modernization efforts.
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → celebrated with various ceremonies and festivities in honor of the king.
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → 
-2026-01-13 17:23:40,655 | INFO | task1-pipeline | integer.out_of_range = 4
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → ,    1234567890123456789012345678901234567890
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → ,    1234567890123456789012345678901234567890
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → ,    1234567890123456789012345678901234567890
-2026-01-13 17:23:40,655 | INFO | task1-pipeline |    sample → ,    1234567890123456789012345678901234567890
-2026-01-13 17:23:40,655 | INFO | task1-pipeline | decimal.out_of_range = 24
-2026-01-13 17:23:40,656 | INFO | task1-pipeline |    sample → 849806185825548775025636715806895112192.8680914260942573460835131476183549274263
-2026-01-13 17:23:40,656 | INFO | task1-pipeline |    sample → 639878945835535503805311310309676285952.2452364593064522936837031428176159911195
-2026-01-13 17:23:40,656 | INFO | task1-pipeline |    sample → 415712646020961927425332905272858902528.4201337677480533892083633479243336698236
-2026-01-13 17:23:40,656 | INFO | task1-pipeline |    sample → 1234567890123456789012345678901234567890
-2026-01-13 17:23:40,656 | INFO | task1-pipeline |    sample → 976267307276179740784450621291704090624.3665249789836665032820568231610658286355
-2026-01-13 17:23:40,656 | INFO | task1-pipeline | integer.null = 12
-2026-01-13 17:23:40,656 | INFO | task1-pipeline |    sample → 
-2026-01-13 17:23:40,656 | INFO | task1-pipeline |    sample → 
-2026-01-13 17:23:40,656 | INFO | task1-pipeline |    sample → 
-2026-01-13 17:23:40,656 | INFO | task1-pipeline |    sample → 
-2026-01-13 17:23:40,656 | INFO | task1-pipeline |    sample → 
-2026-01-13 17:23:40,656 | INFO | task1-pipeline | =========================================
-
-
-
-Upload complete.
-Waiting on bqjob_r188e564804c68b6_0000019bb86624b2_1 ... (1s) Current status: DONE   
-2026-01-13 17:27:43,778 | INFO | task1-pipeline | BigQuery load complete
+2026-01-13 17:50:30,065 | INFO | task1-pipeline | Recovered 105 rows
+2026-01-13 17:50:30,072 | INFO | task1-pipeline | Writing 105 rows to CSV
+2026-01-13 17:50:30,072 | INFO | task1-pipeline | ========== DATA QUALITY REPORT ==========
+2026-01-13 17:50:30,072 | INFO | task1-pipeline | decimal.out_of_range = 55
+2026-01-13 17:50:30,072 | INFO | task1-pipeline |    sample → 519975958309744380574202244404101513216.2808153575264329286178143503023705908758
+2026-01-13 17:50:30,072 | INFO | task1-pipeline |    sample → 552215489184241016142749796723190661120.9796678377436127124717017956793574947821
+2026-01-13 17:50:30,072 | INFO | task1-pipeline |    sample → 1234567890123456789012345678901234567890
+2026-01-13 17:50:30,072 | INFO | task1-pipeline |    sample → 438723381760881326450937667240733966336.3746145771349792260661773257067242608936
+2026-01-13 17:50:30,072 | INFO | task1-pipeline |    sample → 849806185825548775025636715806895112192.8680914260942573460835131476183549274263
+2026-01-13 17:50:30,072 | INFO | task1-pipeline | boolean.invalid = 31
+2026-01-13 17:50:30,072 | INFO | task1-pipeline |    sample → no
+2026-01-13 17:50:30,072 | INFO | task1-pipeline |    sample → no
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 2026-01-06 07:48:25
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → no
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 0
+2026-01-13 17:50:30,073 | INFO | task1-pipeline | integer.null = 31
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 
+2026-01-13 17:50:30,073 | INFO | task1-pipeline | holiday.not_found = 29
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 1,
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → On the day of Makha Bucha, many Thai people visit temples to offer prayers and perform merit-making activities.
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 
+2026-01-13 17:50:30,073 | INFO | task1-pipeline | decimal.invalid = 17
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 48572119303512680943979517588967260160.1785583551782259330294362555441826861195
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 78369940541113786861505034523364032512.2107773292033460099863316837946527696913
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 20522929551966993388109019561349611520.1654203127684042299387603845277452799344
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → 73168623566043253590220438485522710528.3913044470262919735662692813040217690410
+2026-01-13 17:50:30,073 | INFO | task1-pipeline |    sample → #
+2026-01-13 17:50:30,074 | INFO | task1-pipeline | timestamp.invalid = 34
+2026-01-13 17:50:30,074 | INFO | task1-pipeline | integer.invalid = 15
+2026-01-13 17:50:30,074 | INFO | task1-pipeline |    sample → -
+2026-01-13 17:50:30,074 | INFO | task1-pipeline |    sample → -
+2026-01-13 17:50:30,074 | INFO | task1-pipeline |    sample → -
+2026-01-13 17:50:30,074 | INFO | task1-pipeline |    sample → -
+2026-01-13 17:50:30,074 | INFO | task1-pipeline |    sample → -
+2026-01-13 17:50:30,074 | INFO | task1-pipeline | =========================================
