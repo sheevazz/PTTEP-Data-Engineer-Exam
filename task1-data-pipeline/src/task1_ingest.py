@@ -57,31 +57,22 @@ def read_rows(path):
             if not line:
                 continue
 
-            try:
-                # holiday_name (may contain commas)
-                left, holiday = line.rsplit(",", 1)
+            parts = line.split(",", 4)
 
-                # boolean
-                left, boolean = left.rsplit(",", 1)
+            if len(parts) < 5:
+                dq["row.unrecoverable"] += 1
+                continue
 
-                # timestamp
-                left, timestamp = left.rsplit(",", 1)
-
-                # decimal (never contains commas)
-                integer_part, decimal = left.rsplit(",", 1)
-
-                rows.append({
-                    "integer_col": integer_part.strip(),
-                    "decimal_col": decimal.strip(),
-                    "timestamp_col": timestamp.strip(),
-                    "boolean_col": boolean.strip(),
-                    "holiday_name": holiday.strip()
-                })
-
-            except ValueError:
-                record_dq("row.unrecoverable", line)
+            rows.append({
+                "integer_col": parts[0].strip(),
+                "decimal_col": parts[1].strip(),
+                "timestamp_col": parts[2].strip(),
+                "boolean_col": parts[3].strip(),
+                "holiday_name": parts[4].strip()
+            })
 
     return rows
+
 
 # =====================================================
 # Integer → INT64
@@ -161,7 +152,7 @@ def parse_boolean(v):
 # =====================================================
 
 def extract_holiday(text):
-    m = re.search(r"([A-Z][A-Za-z']*(?: [A-Z][A-Za-z']*)*) (Day|Festival)", text)
+    m = re.search(r"([A-Z][A-Za-z']*(?: [A-Z][A-Za-z']*)*) (Day|Festival|Ceremony|Birthday)", text)
     if not m:
         record_dq("holiday.not_found", text)
         return None
