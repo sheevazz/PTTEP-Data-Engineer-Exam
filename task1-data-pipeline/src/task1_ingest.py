@@ -2,25 +2,30 @@ import os
 import subprocess
 import pandas as pd
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 import pytz
 import logging
 import sys
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, ROUND_HALF_UP
 from collections import Counter
+from collections import defaultdict
+
+dq = Counter()
+dq_samples = defaultdict(list)   # keep examples of bad values
+MAX_SAMPLES = 5                  # don't spam logs
+
+def record_dq(key, value):
+    dq[key] += 1
+    if len(dq_samples[key]) < MAX_SAMPLES:
+        dq_samples[key].append(value)
+
 
 # =====================================================
-# Logging 
+# Logging
 # =====================================================
 
 LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
-
-logging.basicConfig(
-    level=logging.INFO,
-    format=LOG_FORMAT,
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
-
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, handlers=[logging.StreamHandler(sys.stdout)])
 log = logging.getLogger("task1-pipeline")
 
 # =====================================================
@@ -35,241 +40,206 @@ BQ_TABLE = "gcp-test-data-engineer:exam_limpastan.task1_data_result"
 
 os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
 
-# =====================================================
-# Data quality counters
-# =====================================================
-
 dq = Counter()
 
 # =====================================================
-# Decimal parser (BIGNUMERIC safe)
+# CSV reader (deterministic, no regex, no guessing)
 # =====================================================
 
-BIGNUMERIC_MAX = Decimal("5.78960446186581E+38")
-BIGNUMERIC_MIN = -BIGNUMERIC_MAX
+def read_rows(path):
+    rows = []
 
-def parse_decimal(v):
-    if v is None or pd.isna(v):
-        dq["decimal.null"] += 1
-        return None
-    try:
-        d = Decimal(str(v))
-        if BIGNUMERIC_MIN <= d <= BIGNUMERIC_MAX:
-            return str(d)
-        dq["decimal.out_of_range"] += 1
-        return None
-    except InvalidOperation:
-        dq["decimal.invalid"] += 1
-        return None
+    with open(path, "r", encoding="utf-8") as f:
+        f.readline()  # skip header
+
+        for line_no, line in enumerate(f, start=2):
+            line = line.rstrip("\n")
+            if not line:
+                continue
+
+            try:
+                # holiday_name (may contain commas)
+                left, holiday = line.rsplit(",", 1)
+
+                # boolean
+                left, boolean = left.rsplit(",", 1)
+
+                # timestamp
+                left, timestamp = left.rsplit(",", 1)
+
+                # decimal (never contains commas)
+                integer_part, decimal = left.rsplit(",", 1)
+
+                rows.append({
+                    "integer_col": integer_part.strip(),
+                    "decimal_col": decimal.strip(),
+                    "timestamp_col": timestamp.strip(),
+                    "boolean_col": boolean.strip(),
+                    "holiday_name": holiday.strip()
+                })
+
+            except ValueError:
+                record_dq("row.unrecoverable", line)
+
+    return rows
 
 # =====================================================
-# Timestamp parser
+# Integer → INT64
+# =====================================================
+
+INT64_MIN = -9223372036854775808
+INT64_MAX = 9223372036854775807
+
+def normalize_integer(v):
+    if not v:
+        record_dq("integer.null", v)
+        return None
+
+    s = v.replace(",", "").strip()
+
+    if re.fullmatch(r"-?\d+", s):
+        i = int(s)
+        if INT64_MIN <= i <= INT64_MAX:
+            return str(i)
+        record_dq("integer.out_of_range", v)
+        return None
+
+    record_dq("integer.invalid", v)
+    return None
+
+
+# =====================================================
+# Timestamp
 # =====================================================
 
 def parse_timestamp(v):
-    if pd.isna(v):
-        dq["timestamp.null"] += 1
+    if not v:
+        dq["timestamp.invalid"] += 1
         return None
 
-    v = str(v).strip()
-
     try:
-        if re.match(r"\d{4}-\d{2}-\d{2}$", v):
+        if re.fullmatch(r"\d{2}/\d{2}/\d{4}", v):
+            d, m, y = v.split("/")
+            return f"{y}-{m}-{d} 00:00:00"
+
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
             return v + " 00:00:00"
 
-        if re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", v):
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", v):
             return v
 
-        if re.match(r"\d{14}$", v):
+        if re.fullmatch(r"\d{14}", v):
             return datetime.strptime(v, "%Y%m%d%H%M%S").strftime("%Y-%m-%d %H:%M:%S")
 
-        if re.match(r"\d{2}-[A-Za-z]{3}-\d{2}", v):
+        if re.fullmatch(r"\d{2}-[A-Za-z]{3}-\d{2}", v):
             day, mon, yr = v.split("-")
             if yr == "06":
                 month = datetime.strptime(mon, "%b").month
                 return f"2026-{month:02d}-{day} 00:00:00"
 
-    except Exception:
+    except:
         pass
 
     dq["timestamp.invalid"] += 1
     return None
 
 # =====================================================
-# Boolean parser
+# Boolean
 # =====================================================
 
 def parse_boolean(v):
-    if pd.isna(v):
-        dq["boolean.null"] += 1
-        return None
-
-    v = str(v).strip().lower()
-
+    v = v.lower()
     if v in ["true", "yes", "ok", "1"]:
         return True
-    if v == "-":
-        dq["boolean.placeholder"] += 1
-        return None
-
-    dq["boolean.invalid"] += 1
+    if v in ["false", "-", ""]:
+        return False
+    record_dq("boolean.invalid", v)
     return False
 
 # =====================================================
-# Holiday extractor
+# Holiday
 # =====================================================
 
 def extract_holiday(text):
-    if not text or pd.isna(text):
-        dq["holiday.null"] += 1
+    m = re.search(r"([A-Z][A-Za-z']*(?: [A-Z][A-Za-z']*)*) (Day|Festival)", text)
+    if not m:
+        record_dq("holiday.not_found", text)
         return None
-
-    text = re.sub(r"\s+", " ", text).strip()
-
-    # match = re.search(r"([A-Z][A-Za-z']*(?: [A-Z][A-Za-z']*)*) Day", text)
-    match = re.search(
-        r"([A-Z][A-Za-z']*(?: [A-Z][A-Za-z']*)*) (Day|Festival)",
-        text
-    )
-
-    if not match:
-        dq["holiday.not_found"] += 1
-        return None
-
-    # holiday = match.group(0)
-    holiday = match.group(0).strip()
-
-    # remove leading "The "
-    holiday = re.sub(r"^The\s+", "", holiday, flags=re.IGNORECASE)
-
-
-    for prefix in [
-        "On ", "on ", "During ", "during ",
-        "Buddhists ", "Buddhist ",
-        "National ", "Royal "
-    ]:
-        if holiday.startswith(prefix):
-            holiday = holiday[len(prefix):]
-
-    return holiday.strip()
+    return m.group(0)
 
 # =====================================================
-# Integer normalization (BigQuery INT64 safe)
+# BIGNUMERIC
 # =====================================================
 
-INT64_MIN = -9223372036854775808
-INT64_MAX =  9223372036854775807
+BQ_MAX_INT = 38
+BQ_SCALE = 9
 
-def normalize_integer_col(series):
-    cleaned = []
+def to_bq_bignumeric(v):
+    if not v:
+        return None
+    try:
+        d = Decimal(v)
+        sign, digits, exp = d.as_tuple()
+        int_digits = len(digits) + exp if exp >= 0 else len(digits[:exp])
 
-    for v in series:
-        if v is None or pd.isna(v):
-            dq["integer.null"] += 1
-            cleaned.append(pd.NA)
-            continue
+        if int_digits > BQ_MAX_INT:
+            record_dq("decimal.out_of_range", v)
+            return None
 
-        s = str(v).replace(",", "").strip()
+        if -exp > BQ_SCALE:
+            d = d.quantize(Decimal("1." + "0" * BQ_SCALE), rounding=ROUND_HALF_UP)
 
-        if re.fullmatch(r"-?\d+", s):
-            try:
-                i = int(s)
-                if INT64_MIN <= i <= INT64_MAX:
-                    cleaned.append(i)
-                else:
-                    dq["integer.out_of_range"] += 1
-                    cleaned.append(pd.NA)
-            except:
-                dq["integer.invalid"] += 1
-                cleaned.append(pd.NA)
-            continue
-
-        try:
-            f = float(s)
-            if f.is_integer():
-                i = int(f)
-                if INT64_MIN <= i <= INT64_MAX:
-                    cleaned.append(i)
-                else:
-                    dq["integer.out_of_range"] += 1
-                    cleaned.append(pd.NA)
-            else:
-                dq["integer.invalid"] += 1
-                cleaned.append(pd.NA)
-        except:
-            dq["integer.invalid"] += 1
-            cleaned.append(pd.NA)
-
-    return pd.Series(cleaned, dtype="Int64")
+        return format(d, "f")
+    except:
+        record_dq("decimal.invalid", v)
+        return None
 
 # =====================================================
 # Main
 # =====================================================
 
 def main():
-    log.info("Reading CSV from %s", CSV_PATH)
+    raw_rows = read_rows(CSV_PATH)
+    log.info("Recovered %s rows", len(raw_rows))
 
-    raw = pd.read_csv(
-        CSV_PATH,
-        engine="python",
-        on_bad_lines="skip",
-        dtype=str
-    )
+    records = []
+    for i, row in enumerate(raw_rows, start=1):
+        records.append({
+            "row_id": i,
+            "integer_col": normalize_integer(row["integer_col"]),
+            "decimal_col": to_bq_bignumeric(row["decimal_col"]),
+            "timestamp_col": parse_timestamp(row["timestamp_col"]),
+            "boolean_col": parse_boolean(row["boolean_col"]),
+            "holiday_name": extract_holiday(row["holiday_name"]),
+            "business_datetime": datetime.now(BKK),
+            "created_datetime": datetime.now(timezone.utc)
+        })
 
-    log.info("Read %s valid rows", len(raw))
+    df = pd.DataFrame(records)
 
-    results = []
+    log.info("Writing %s rows to CSV", len(df))
 
-    for idx, row in enumerate(raw.itertuples(index=False), start=1):
-        try:
-            full_text = f"{getattr(row,'boolean_col','')} {getattr(row,'holiday_name','')}"
-
-            results.append({
-                "row_id": idx,
-                "integer_col": getattr(row, "integer_col", None),
-                "decimal_col": parse_decimal(getattr(row, "decimal_col", None)),
-                "timestamp_col": parse_timestamp(getattr(row, "timestamp_col", None)),
-                "boolean_col": parse_boolean(getattr(row, "boolean_col", None)),
-                "holiday_name": extract_holiday(full_text),
-                "business_datetime": datetime.now(BKK),
-                "created_datetime": datetime.utcnow()
-            })
-        except Exception as e:
-            dq["row.failed"] += 1
-            log.error("Row %s failed: %s", idx, e, exc_info=True)
-
-    df_out = pd.DataFrame(results)
-
-    df_out["integer_col"] = normalize_integer_col(df_out["integer_col"])
-
-    log.info("Output schema:")
-    log.info("\n%s", df_out.dtypes)
-
-    log.info("Data quality summary:")
+    log.info("========== DATA QUALITY REPORT ==========")
     for k, v in dq.items():
-        log.info("  %s = %s", k, v)
+        log.info("%s = %s", k, v)
+        if k in dq_samples:
+            for s in dq_samples[k]:
+                log.info("   sample → %s", s[:200])
+    log.info("=========================================")
 
-    log.info("Writing CSV to %s", OUTPUT_CSV)
-    df_out.to_csv(OUTPUT_CSV, index=False)
+    df.to_csv(OUTPUT_CSV, index=False)
 
-    log.info("Loading %s rows into %s", len(df_out), BQ_TABLE)
+    subprocess.run([
+        "bq", "load",
+        "--source_format=CSV",
+        "--skip_leading_rows=1",
+        "--replace",
+        BQ_TABLE,
+        OUTPUT_CSV,
+        "row_id:INTEGER,integer_col:INTEGER,decimal_col:BIGNUMERIC,timestamp_col:TIMESTAMP,boolean_col:BOOL,holiday_name:STRING,business_datetime:TIMESTAMP,created_datetime:TIMESTAMP"
+    ], check=True)
 
-    try:
-        subprocess.run([
-            "bq", "load",
-            "--source_format=CSV",
-            "--skip_leading_rows=1",
-            "--replace",
-            BQ_TABLE,
-            OUTPUT_CSV,
-            "row_id:INTEGER,integer_col:INTEGER,decimal_col:BIGNUMERIC,timestamp_col:TIMESTAMP,boolean_col:BOOL,holiday_name:STRING,business_datetime:TIMESTAMP,created_datetime:TIMESTAMP"
-        ], check=True)
-
-        log.info("BigQuery load completed successfully")
-
-    except subprocess.CalledProcessError as e:
-        log.critical("BigQuery load failed")
-        raise
+    log.info("BigQuery load complete")
 
 if __name__ == "__main__":
     main()
