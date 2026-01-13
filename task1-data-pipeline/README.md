@@ -84,27 +84,60 @@ All invalid formats → NULL.
 
 ---
 
-### 5. `boolean_col` → BOOL
+### 4. `boolean_col` → BOOL
+
+The column may contain arbitrary values.
+
+Rules:
+- **True** if value ∈ (`true`, `yes`, `ok`, `1`) (case-insensitive)
+- **False** for all other values
+- `"-"` is treated as an **invalid placeholder** → stored as `NULL`
+
+Examples:
 
 | Input | Output |
 |------|--------|
-| true, yes, ok, 1 | TRUE |
-| '-' | NULL |
-| Others | FALSE |
+| `true` | TRUE |
+| `yes` | TRUE |
+| `ok` | TRUE |
+| `1` | TRUE |
+| `no` | FALSE |
+| `0` | FALSE |
+| `2026-01-06 07:48:25` | FALSE |
+| `random` | FALSE |
+| `-` | NULL |
 
 ---
 
-### 6. `holiday_name`
+### 5. `holiday_name` → STRING
 
-Extracted from free text ending with "Day" and "Festival".  
-Leading context words are removed.
+The column contains free-text descriptions of holidays and may include commas, quotes, and narrative text.
 
-| Input | Output |
-|------|--------|
-| On Constitution Day | Constitution Day |
-| During Labour Day | Labour Day |
-| Buddhists  Makha Bucha Day | Makha Bucha Day |
-| during Songkran Festival | Songkran Festival |
+The pipeline extracts a canonical holiday name using pattern matching.
+
+Extraction rules (in priority order):
+
+1. `<Proper Noun> (Day | Festival | Ceremony)`  
+   Examples:  
+   - `Makha Bucha Day`  
+   - `Songkran Festival`  
+   - `Royal Ploughing Ceremony`
+
+2. `X's Birthday`  
+   Examples:  
+   - `King's Birthday`  
+   - `Queen's Birthday`
+
+3. Known Thai Buddhist holidays without the word “Day”:  
+   - `Makha Bucha`  
+   - `Visakha Bucha`  
+   - `Asalha Bucha`
+
+Before matching, the following narrative prefixes are removed:
+`On`, `After`, `During`, `The day of`
+
+If no known holiday pattern is found, the value is stored as `NULL` and counted as `holiday.not_found`.
+
 
 ---
 
