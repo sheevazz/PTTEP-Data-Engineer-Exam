@@ -84,7 +84,7 @@ All invalid formats → NULL.
 
 ---
 
-### 4. `boolean_col` → BOOL
+### 5. `boolean_col` → BOOL
 
 The column may contain arbitrary values.
 
@@ -109,34 +109,31 @@ Examples:
 
 ---
 
-### 5. `holiday_name` → STRING
+### 6. `holiday_name` → STRING
 
-The column contains free-text descriptions of holidays and may include commas, quotes, and narrative text.
+The source column contains **unstructured narrative text**, not just holiday names.
 
-The pipeline extracts a canonical holiday name using pattern matching.
+Examples:
+- "On Constitution Day, citizens engage in activities..."
+- "Every year, during Makha Bucha Day, a peaceful atmosphere fills the air..."
+- "The King's Birthday is celebrated with grand parades..."
 
-Extraction rules (in priority order):
+The pipeline extracts a normalized holiday name using pattern recognition.
 
-1. `<Proper Noun> (Day | Festival | Ceremony)`  
-   Examples:  
-   - `Makha Bucha Day`  
-   - `Songkran Festival`  
-   - `Royal Ploughing Ceremony`
+Supported patterns:
+- `<Holiday> Day` → e.g. "Makha Bucha Day", "Constitution Day"
+- `<Holiday> Festival` → e.g. "Songkran Festival"
+- `<Holiday> Ceremony` → e.g. "Royal Ploughing Ceremony"
+- `<Person>'s Birthday` → e.g. "King's Birthday", "Queen's Birthday"
+- Standalone Thai holidays → "Makha Bucha", "Visakha Bucha", "Asalha Bucha"
 
-2. `X's Birthday`  
-   Examples:  
-   - `King's Birthday`  
-   - `Queen's Birthday`
+Leading narrative phrases are removed:
+- "On ..."
+- "After ..."
+- "During ..."
+- "The day of ..."
 
-3. Known Thai Buddhist holidays without the word “Day”:  
-   - `Makha Bucha`  
-   - `Visakha Bucha`  
-   - `Asalha Bucha`
-
-Before matching, the following narrative prefixes are removed:
-`On`, `After`, `During`, `The day of`
-
-If no known holiday pattern is found, the value is stored as `NULL` and counted as `holiday.not_found`.
+If no recognizable holiday is found → **NULL**
 
 
 ---
