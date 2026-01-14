@@ -7,17 +7,25 @@ import pytz
 import logging
 import sys
 from decimal import Decimal, ROUND_HALF_UP
-from collections import Counter
-from collections import defaultdict
+from collections import Counter, defaultdict
+
+# =====================================================
+# Data quality tracking
+# =====================================================
 
 dq = Counter()
-dq_samples = defaultdict(list)   # keep examples of bad values
-MAX_SAMPLES = 5                  # don't spam logs
+dq_samples = defaultdict(list)
+MAX_SAMPLES = 5
 
-def record_dq(key, value):
+def record_dq(key, value, line_no=None):
     dq[key] += 1
     if len(dq_samples[key]) < MAX_SAMPLES:
-        dq_samples[key].append(value)
+        if line_no:
+            # dq_samples[key].append(f"[line {line_no}] {value}")
+            dq_samples[key].append(f"[line {line_no}] {repr(value)}")
+
+        else:
+            dq_samples[key].append(str(value))
 
 
 # =====================================================
@@ -40,35 +48,75 @@ BQ_TABLE = "gcp-test-data-engineer:exam_limpastan.task1_data_result"
 
 os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
 
-dq = Counter()
+# =====================================================
+# CSV reader (correct)
+# =====================================================
 
-# =====================================================
-# CSV reader (deterministic, no regex, no guessing)
-# =====================================================
+import csv
+
+import csv
+
+import csv
 
 def read_rows(path):
     rows = []
 
+    ts_patterns = [
+        r"\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2}:\d{2})?",
+        r"\d{2}/\d{2}/\d{4}",
+        r"\d{14}",
+        r"\d{2}-[A-Za-z]{3}-\d{2}",
+        r"unknown"
+    ]
+
+    ts_re = "(" + "|".join(ts_patterns) + ")"
+    bool_re = r"(true|false|yes|ok|1|0|-|no)"
+
+    pattern = re.compile(rf",\s*{ts_re}\s*,\s*{bool_re}\s*,", re.IGNORECASE)
+
     with open(path, "r", encoding="utf-8") as f:
-        f.readline()  # skip header
+        f.readline()
 
         for line_no, line in enumerate(f, start=2):
             line = line.rstrip("\n")
             if not line:
                 continue
 
-            parts = line.split(",", 4)
-
-            if len(parts) < 5:
-                dq["row.unrecoverable"] += 1
+            m = pattern.search(line)
+            if not m:
+                # still keep row but everything except holiday is unknown
+                record_dq("row.bad_structure", line, line_no)
+                parts = line.split(",", 4)
+                while len(parts) < 5:
+                    parts.append("")
+                rows.append({
+                    "integer_col": parts[0].strip(),
+                    "decimal_col": parts[1].strip(),
+                    "timestamp_col": parts[2].strip(),
+                    "boolean_col": parts[3].strip(),
+                    "holiday_name": parts[4].strip(),
+                    "_line_no": line_no
+                })
                 continue
 
+            ts = m.group(1)
+            boolean = m.group(2)
+
+            left = line[:m.start()]
+            right = line[m.end():]
+
+            # left = integer , decimal
+            left_parts = left.split(",", 1)
+            integer = left_parts[0]
+            decimal = left_parts[1] if len(left_parts) == 2 else ""
+
             rows.append({
-                "integer_col": parts[0].strip(),
-                "decimal_col": parts[1].strip(),
-                "timestamp_col": parts[2].strip(),
-                "boolean_col": parts[3].strip(),
-                "holiday_name": parts[4].strip()
+                "integer_col": integer.strip(),
+                "decimal_col": decimal.strip(),
+                "timestamp_col": ts.strip(),
+                "boolean_col": boolean.strip(),
+                "holiday_name": right.strip(),
+                "_line_no": line_no
             })
 
     return rows
@@ -79,11 +127,11 @@ def read_rows(path):
 # =====================================================
 
 INT64_MIN = -9223372036854775808
-INT64_MAX = 9223372036854775807
+INT64_MAX =  9223372036854775807
 
-def normalize_integer(v):
+def normalize_integer(v, line_no):
     if not v:
-        record_dq("integer.null", v)
+        record_dq("integer.null", v, line_no)
         return None
 
     s = v.replace(",", "").strip()
@@ -92,10 +140,10 @@ def normalize_integer(v):
         i = int(s)
         if INT64_MIN <= i <= INT64_MAX:
             return str(i)
-        record_dq("integer.out_of_range", v)
+        record_dq("integer.out_of_range", v, line_no)
         return None
 
-    record_dq("integer.invalid", v)
+    record_dq("integer.invalid", v, line_no)
     return None
 
 
@@ -103,9 +151,9 @@ def normalize_integer(v):
 # Timestamp
 # =====================================================
 
-def parse_timestamp(v):
+def parse_timestamp(v, line_no):
     if not v:
-        dq["timestamp.invalid"] += 1
+        record_dq("timestamp.invalid", v, line_no)
         return None
 
     try:
@@ -131,29 +179,27 @@ def parse_timestamp(v):
     except:
         pass
 
-    dq["timestamp.invalid"] += 1
+    record_dq("timestamp.invalid", v, line_no)
     return None
+
 
 # =====================================================
 # Boolean
 # =====================================================
 
-def parse_boolean(v):
+def parse_boolean(v, line_no):
     if v is None or str(v).strip() == "":
         return False
 
     s = str(v).strip().lower()
 
-    # invalid placeholder
     if s == "-":
-        record_dq("boolean.invalid", v)
+        record_dq("boolean.invalid", v, line_no)
         return None
 
-    # TRUE values
     if s in ["true", "yes", "ok", "1"]:
         return True
 
-    # everything else → False (valid)
     return False
 
 
@@ -161,33 +207,26 @@ def parse_boolean(v):
 # Holiday
 # =====================================================
 
-def extract_holiday(text):
+def extract_holiday(text, line_no):
     if not text:
-        record_dq("holiday.null", text)
+        record_dq("holiday.null", text, line_no)
         return None
 
-    text = re.sub(r"\s+", " ", text).strip()
-
-    # Remove narrative prefixes
-    text = re.sub(r"^(On|After|During|The day of|the day of)\s+", "", text, flags=re.IGNORECASE)
+    clean = re.sub(r"\s+", " ", text).strip()
 
     patterns = [
-        # Makha Bucha Day, Songkran Festival, Royal Ploughing Ceremony
+        r"(Songkran Festival)",
         r"([A-Z][A-Za-z']*(?: [A-Z][A-Za-z']*)*) (Day|Festival|Ceremony)",
-
-        # King's Birthday, Queen's Birthday
         r"([A-Z][A-Za-z']*'s Birthday)",
-
-        # Makha Bucha (without "Day")
-        r"(Makha Bucha|Visakha Bucha|Asalha Bucha)"
+        r"(Makha Bucha|Visakha Bucha|Asalha Bucha|Labour Day|Labor Day|Buddhist Lent)"
     ]
 
     for p in patterns:
-        m = re.search(p, text)
+        m = re.search(p, clean)
         if m:
-            return m.group(1)
+            return m.group(0)
 
-    record_dq("holiday.not_found", text)
+    record_dq("holiday.not_found", clean, line_no)
     return None
 
 
@@ -199,7 +238,7 @@ def extract_holiday(text):
 BQ_MAX_INT = 38
 BQ_SCALE = 9
 
-def to_bq_bignumeric(v):
+def to_bq_bignumeric(v, line_no):
     if not v:
         return None
     try:
@@ -208,7 +247,7 @@ def to_bq_bignumeric(v):
         int_digits = len(digits) + exp if exp >= 0 else len(digits[:exp])
 
         if int_digits > BQ_MAX_INT:
-            record_dq("decimal.out_of_range", v)
+            record_dq("decimal.out_of_range", v, line_no)
             return None
 
         if -exp > BQ_SCALE:
@@ -216,8 +255,9 @@ def to_bq_bignumeric(v):
 
         return format(d, "f")
     except:
-        record_dq("decimal.invalid", v)
+        record_dq("decimal.invalid", v, line_no)
         return None
+
 
 # =====================================================
 # Main
@@ -229,13 +269,15 @@ def main():
 
     records = []
     for i, row in enumerate(raw_rows, start=1):
+        ln = row["_line_no"]
+
         records.append({
             "row_id": i,
-            "integer_col": normalize_integer(row["integer_col"]),
-            "decimal_col": to_bq_bignumeric(row["decimal_col"]),
-            "timestamp_col": parse_timestamp(row["timestamp_col"]),
-            "boolean_col": parse_boolean(row["boolean_col"]),
-            "holiday_name": extract_holiday(row["holiday_name"]),
+            "integer_col": normalize_integer(row["integer_col"], ln),
+            "decimal_col": to_bq_bignumeric(row["decimal_col"], ln),
+            "timestamp_col": parse_timestamp(row["timestamp_col"], ln),
+            "boolean_col": parse_boolean(row["boolean_col"], ln),
+            "holiday_name": extract_holiday(row["holiday_name"], ln),
             "business_datetime": datetime.now(BKK),
             "created_datetime": datetime.now(timezone.utc)
         })
@@ -247,9 +289,8 @@ def main():
     log.info("========== DATA QUALITY REPORT ==========")
     for k, v in dq.items():
         log.info("%s = %s", k, v)
-        if k in dq_samples:
-            for s in dq_samples[k]:
-                log.info("   sample → %s", s[:200])
+        for s in dq_samples[k]:
+            log.info("   sample → %s", s)
     log.info("=========================================")
 
     df.to_csv(OUTPUT_CSV, index=False)
